@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shinobi Run: Petualangan Waktu</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --night-sky: #0f172a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background-color: #111;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 400px;
+            background: #000;
+            overflow: hidden;
+            border: 4px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 15px 20px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .stats-left {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        #hp-container {
+            width: 150px;
+            height: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #hp-bar {
+            width: 100%;
+            height: 100%;
+            background: var(--success);
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        /* Notifikasi Bonus HP */
+        #bonus-msg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            color: var(--success);
+            font-weight: 900;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+            pointer-events: none;
+            z-index: 15;
+            text-shadow: 0 0 10px rgba(46, 204, 113, 0.8);
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            pointer-events: auto;
+            z-index: 20;
+            text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 { font-size: 3rem; margin-bottom: 10px; color: var(--primary); }
+        .score-info { margin-bottom: 25px; color: #ccc; }
+        
+        .btn {
+            padding: 12px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            background: var(--primary);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4);
+        }
+
+        .btn:hover { transform: scale(1.05); }
+
+        #level-indicator {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            z-index: 10;
+        }
+
+        #jump-control-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 15;
+        }
+
+        .jump-btn-ui {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 4px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            color: white;
+            font-weight: 900;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: background 0.1s, transform 0.1s;
+        }
+
+        .jump-btn-ui:active {
+            background: rgba(255, 255, 255, 0.5);
+            transform: scale(0.9);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="hud">
+            <div class="stats-left">
+                <div id="hp-container">
+                    <div id="hp-bar"></div>
+                </div>
+                <div>HP: <span id="hp-text">100</span></div>
+            </div>
+            <div style="text-align: right;">
+                <div>SKOR: <span id="current-score">0</span></div>
+                <div style="font-size: 0.8rem; color: #aaa;">BEST: <span id="high-score">0</span></div>
+            </div>
+        </div>
+        <div id="level-indicator">FASE: MALAM</div>
+        
+        <!-- Notifikasi Bonus -->
+        <div id="bonus-msg">+20 HP</div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="jump-control-container">
+            <div id="jump-btn" class="jump-btn-ui">LOMPAT</div>
+        </div>
+
+        <div id="start-screen" class="screen">
+            <h1>SHINOBI RUN</h1>
+            <p class="score-info">HP: 100 | Bonus HP Setiap 100 Poin!</p>
+            <button class="btn" onclick="startGame()">MULAI</button>
+        </div>
+
+        <div id="game-over-screen" class="screen hidden">
+            <h2 style="font-size: 2.5rem; color: #e74c3c;">MISI GAGAL</h2>
+            <div class="score-info" style="margin-top: 10px;">
+                <p>Skor Akhir: <span id="final-score">0</span></p>
+            </div>
+            <button class="btn" onclick="startGame()">MAIN LAGI</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreUI = document.getElementById('current-score');
+        const highScoreUI = document.getElementById('high-score');
+        const hpBarUI = document.getElementById('hp-bar');
+        const hpTextUI = document.getElementById('hp-text');
+        const bonusMsgUI = document.getElementById('bonus-msg');
+        const finalScoreUI = document.getElementById('final-score');
+        const levelIndicator = document.getElementById('level-indicator');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const jumpBtn = document.getElementById('jump-btn');
+
+        let gameRunning = false;
+        let score = 0;
+        let highScore = localStorage.getItem('shinobi_high') || 0;
+        let speed = 4;
+        let frameCount = 0;
+        let lastHpBonusThreshold = 0; // Melacak kapan bonus diberikan
+        let player, obstacles, animationId;
+
+        highScoreUI.innerText = highScore;
+
+        class Player {
+            constructor() {
+                this.w = 40;
+                this.h = 50;
+                this.x = 80;
+                this.y = canvas.height - 80;
+                this.dy = 0;
+                this.jumpF = 12;
+                this.gravity = 0.6;
+                this.isGrounded = true;
+                this.isFalling = false;
+                
+                this.hp = 100;
+                this.maxHp = 100;
+                this.invincibleFrames = 0;
+            }
+
+            draw() {
+                if (this.invincibleFrames > 0 && Math.floor(frameCount / 5) % 2 === 0) return;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                if(this.isFalling) ctx.rotate(frameCount * 0.1);
+
+                ctx.fillStyle = '#222';
+                ctx.fillRect(0, 0, this.w, this.h);
+                ctx.fillStyle = '#c0392b';
+                ctx.fillRect(-10 - Math.sin(frameCount * 0.1)*5, 10, 15, 8);
+                ctx.fillStyle = '#f3e5ab';
+                ctx.fillRect(10, 8, 25, 12);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(15, 12, 4, 2);
+                ctx.fillRect(28, 12, 4, 2);
+
+                ctx.restore();
+            }
+
+            update() {
+                if (this.invincibleFrames > 0) this.invincibleFrames--;
+
+                if(this.isFalling) {
+                    this.y += 10;
+                    return;
+                }
+                if(!this.isGrounded) {
+                    this.dy += this.gravity;
+                    this.y += this.dy;
+                }
+                if(this.y >= canvas.height - 80) {
+                    this.y = canvas.height - 80;
+                    this.dy = 0;
+                    this.isGrounded = true;
+                }
+            }
+
+            takeDamage(amount) {
+                if (this.invincibleFrames > 0 || this.isFalling) return;
+                
+                this.hp -= amount;
+                if (this.hp < 0) this.hp = 0;
+                this.invincibleFrames = 60; 
+                
+                updateHPUI();
+                
+                if (this.hp <= 0) {
+                    gameOver();
+                }
+            }
+
+            // Fungsi Penambahan Darah
+            heal(amount) {
+                if (this.hp >= this.maxHp) return;
+                
+                this.hp += amount;
+                if (this.hp > this.maxHp) this.hp = this.maxHp;
+                
+                // Efek visual sukses heal
+                hpBarUI.style.backgroundColor = '#fff';
+                setTimeout(updateHPUI, 100);
+                
+                showBonusNotification();
+                updateHPUI();
+            }
+
+            jump() {
+                if(this.isGrounded && !this.isFalling) {
+                    this.dy = -this.jumpF;
+                    this.isGrounded = false;
+                }
+            }
+        }
+
+        function updateHPUI() {
+            const percent = (player.hp / player.maxHp) * 100;
+            hpBarUI.style.width = percent + '%';
+            hpTextUI.innerText = player.hp;
+            
+            if (percent > 50) hpBarUI.style.backgroundColor = '#2ecc71';
+            else if (percent > 20) hpBarUI.style.backgroundColor = '#f1c40f';
+            else hpBarUI.style.backgroundColor = '#e74c3c';
+        }
+
+        function showBonusNotification() {
+            bonusMsgUI.style.opacity = '1';
+            bonusMsgUI.style.transform = 'translate(-50%, -100%)';
+            setTimeout(() => {
+                bonusMsgUI.style.opacity = '0';
+                bonusMsgUI.style.transform = 'translate(-50%, -50%)';
+            }, 1500);
+        }
+
+        class Obstacle {
+            constructor(type, speed) {
+                this.type = type;
+                this.speed = speed;
+                this.x = canvas.width;
+                this.angle = 0;
+                this.hasHit = false;
+
+                const types = {
+                    shuriken: { w: 30, h: 30, y: canvas.height - 120 },
+                    landak:   { w: 40, h: 25, y: canvas.height - 65 },
+                    telur:    { w: 25, h: 30, y: canvas.height - 130 },
+                    ayam:     { w: 35, h: 35, y: canvas.height - 75 },
+                    lubang:   { w: 80, h: 40, y: canvas.height - 40 },
+                    api:      { w: 30, h: 60, y: canvas.height - 100 },
+                    burung:   { w: 40, h: 30, y: canvas.height - 150 },
+                    serigala: { w: 50, h: 35, y: canvas.height - 75 }
+                };
+
+                const config = types[type];
+                this.w = config.w;
+                this.h = config.h;
+                this.y = config.y;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x + this.w/2, this.y + this.h/2);
+
+                switch(this.type) {
+                    case 'shuriken':
+                        this.angle += 0.3;
+                        ctx.rotate(this.angle);
+                        ctx.fillStyle = '#bdc3c7';
+                        for(let i=0; i<4; i++) {
+                            ctx.rotate(Math.PI/2);
+                            ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-4,-15); ctx.lineTo(4,-15); ctx.fill();
+                        }
+                        break;
+                    case 'landak':
+                        ctx.fillStyle = '#795548';
+                        ctx.beginPath(); ctx.arc(0, 5, 15, Math.PI, 0); ctx.fill();
+                        ctx.strokeStyle = '#3e2723';
+                        for(let i=0; i<5; i++) {
+                            let a = (i/4)*Math.PI + Math.PI;
+                            ctx.beginPath(); ctx.moveTo(Math.cos(a)*15, Math.sin(a)*15); ctx.lineTo(Math.cos(a)*22, Math.sin(a)*22); ctx.stroke();
+                        }
+                        break;
+                    case 'telur':
+                        ctx.fillStyle = '#fff';
+                        ctx.beginPath(); ctx.ellipse(0, 0, 10, 14, 0, 0, Math.PI*2); ctx.fill();
+                        break;
+                    case 'ayam':
+                        ctx.fillStyle = '#f1c40f';
+                        ctx.fillRect(-15, -10, 25, 20);
+                        ctx.fillStyle = '#e67e22';
+                        ctx.beginPath(); ctx.moveTo(10, -5); ctx.lineTo(18, 0); ctx.lineTo(10, 5); ctx.fill();
+                        break;
+                    case 'lubang':
+                        ctx.fillStyle = '#000';
+                        ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
+                        break;
+                    case 'api':
+                        ctx.fillStyle = (frameCount % 10 < 5) ? '#e67e22' : '#f1c40f';
+                        ctx.beginPath(); ctx.moveTo(0, -this.h/2); ctx.lineTo(this.w/2, this.h/2); ctx.lineTo(-this.w/2, this.h/2); ctx.fill();
+                        break;
+                    case 'burung':
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 3;
+                        let flap = Math.sin(frameCount * 0.2) * 15;
+                        ctx.beginPath(); ctx.moveTo(-15, flap); ctx.lineTo(0, 0); ctx.lineTo(15, flap); ctx.stroke();
+                        break;
+                    case 'serigala':
+                        ctx.fillStyle = '#555';
+                        ctx.fillRect(-20, -10, 40, 20);
+                        ctx.fillRect(-25, -15, 15, 10);
+                        break;
+                }
+                ctx.restore();
+            }
+
+            update() {
+                this.x -= this.speed;
+                this.draw();
+            }
+        }
+
+        function getBgColor() {
+            if (score < 100) return '#0f172a';
+            if (score < 200) return '#ff9a9e';
+            if (score < 300) return '#87CEEB';
+            if (score < 400) return '#fd5e53';
+            return '#2c3e50';
+        }
+
+        function getLevelName() {
+            if (score < 100) return 'FASE: MALAM';
+            if (score < 200) return 'FASE: FAJAR';
+            if (score < 300) return 'FASE: SIANG';
+            if (score < 400) return 'FASE: SENJA';
+            return 'FASE: SURVIVAL';
+        }
+
+        function spawnObstacles() {
+            let interval = Math.max(40, 80 - (speed * 2));
+            if(frameCount % Math.floor(interval) === 0) {
+                let pool = [];
+                if (score < 100) pool = ['shuriken', 'landak'];
+                else if (score < 200) pool = ['telur', 'ayam'];
+                else if (score < 300) pool = ['lubang', 'api'];
+                else if (score < 400) pool = ['burung', 'serigala'];
+                else pool = ['shuriken', 'landak', 'telur', 'ayam', 'lubang', 'api', 'burung', 'serigala'];
+
+                let type = pool[Math.floor(Math.random() * pool.length)];
+                obstacles.push(new Obstacle(type, speed));
+            }
+        }
+
+        function checkCollision(p, o) {
+            if (o.hasHit) return false;
+
+            if (o.type === 'lubang') {
+                if (p.isGrounded && (p.x + p.w/2 > o.x && p.x + p.w/2 < o.x + o.w)) {
+                    return 'fall';
+                }
+                return false;
+            }
+            
+            const collision = (p.x + 5 < o.x + o.w && p.x + p.w - 5 > o.x && 
+                               p.y + 5 < o.y + o.h && p.y + p.h - 5 > o.y);
+            
+            if (collision) {
+                o.hasHit = true; 
+                return true;
+            }
+            return false;
+        }
+
+        function gameLoop() {
+            if(!gameRunning) return;
+
+            ctx.fillStyle = getBgColor();
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = (score >= 200 && score < 300) ? '#d2b48c' : '#333';
+            ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+            player.update();
+            player.draw();
+
+            spawnObstacles();
+
+            for(let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].update();
+
+                let col = checkCollision(player, obstacles[i]);
+                if(col === 'fall') {
+                    player.isFalling = true;
+                    setTimeout(gameOver, 600);
+                } else if(col === true) {
+                    player.takeDamage(20);
+                }
+
+                if(obstacles[i].x < -100) obstacles.splice(i, 1);
+            }
+
+            score += 0.15;
+            speed = 4 + (score / 50);
+            
+            // Logika Bonus HP setiap kelipatan 100
+            let currentIntScore = Math.floor(score);
+            let currentThreshold = Math.floor(currentIntScore / 100);
+            if (currentThreshold > lastHpBonusThreshold && currentThreshold > 0) {
+                lastHpBonusThreshold = currentThreshold;
+                player.heal(20); // Tambah 20 HP
+            }
+            
+            scoreUI.innerText = currentIntScore;
+            levelIndicator.innerText = getLevelName();
+            
+            frameCount++;
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            score = 0;
+            speed = 4;
+            frameCount = 0;
+            lastHpBonusThreshold = 0;
+            obstacles = [];
+            player = new Player();
+            gameRunning = true;
+            
+            updateHPUI();
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            gameLoop();
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+            
+            let finalS = Math.floor(score);
+            finalScoreUI.innerText = finalS;
+            if(finalS > highScore) {
+                highScore = finalS;
+                localStorage.setItem('shinobi_high', highScore);
+                highScoreUI.innerText = highScore;
+            }
+            
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // Kontrol
+        jumpBtn.addEventListener('mousedown', (e) => {
+            if(gameRunning) player.jump();
+            e.stopPropagation();
+        });
+        jumpBtn.addEventListener('touchstart', (e) => {
+            if(gameRunning) player.jump();
+            e.preventDefault();
+            e.stopPropagation();
+        }, { passive: false });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                if(gameRunning) player.jump();
+                e.preventDefault();
+            }
+        });
+        
+        canvas.addEventListener('touchstart', (e) => {
+            if(gameRunning) player.jump();
+        }, { passive: true });
+
+        function resize() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+    </script>
+</body>
+</html>
